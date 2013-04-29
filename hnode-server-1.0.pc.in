@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: HNode_Server
+Description: GObject implementing the HNode server functions.
+URL: 
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lhnode_server
+Cflags:
+

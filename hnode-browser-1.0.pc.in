@@ -1,0 +1,13 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: HNode_Browser
+Description: GObject implementing the HNode client/browser functions.
+URL: 
+Version: @VERSION@
+Requires:
+Libs: -L${libdir} -lhnode_browser
+Cflags:
+
