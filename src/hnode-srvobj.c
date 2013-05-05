@@ -28,6 +28,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <errno.h>
 
 // These functions should probably be replaced with glib equivalents.
 #include <stdio.h>
@@ -48,9 +49,16 @@
 #include <avahi-glib/glib-watch.h>
 #include <avahi-glib/glib-malloc.h>
 
+#include <libdaemon/dfork.h>
+#include <libdaemon/dsignal.h>
+#include <libdaemon/dlog.h>
+#include <libdaemon/dpid.h>
+#include <libdaemon/dexec.h>
+
 //#include <slp.h>
 
 //#include "hmpacket.h"
+#include "hnode-logging.h"
 #include "hnode-pktsrc.h"
 #include "hnode-provider.h"
 #include "hnode-srvobj.h"
@@ -198,6 +206,11 @@ struct _GHNodeServerPrivate
   
     GList *ClientList;
 
+    gchar    daemonIDStr[64];
+    pid_t    daemonPID;
+    gboolean isDaemon;
+    gboolean isParent;
+
     gboolean                   dispose_has_run;
 
 };
@@ -321,6 +334,11 @@ g_hnode_server_init (GHNodeServer *sb)
     priv->HNodeList    = NULL;
 
     priv->ClientList   = NULL;
+
+    g_stpcpy( priv->daemonIDStr, "hmnoded" );
+    priv->daemonPID    = 0;
+    priv->isDaemon     = FALSE;
+    priv->isParent     = FALSE;
 
     priv->dispose_has_run = FALSE;
 
@@ -966,7 +984,8 @@ g_hnode_server_debugrx(GHNodePktSrc *sb, GHNodePacket *RxPacket, gpointer data)
 			send(Client->curSock, TxBuf, (PktPos - TxBuf), 0);
         }
              
-    }*/
+    }
+*/
 }
 
 void 
@@ -1178,6 +1197,297 @@ g_hnode_server_start(GHNodeServer *Server)
                  (struct sockaddr *)&toAddr, sizeof(toAddr));
 */
 }
+
+static gboolean 
+g_hnode_server_signal_source_callback( gint signal, gpointer data ) 
+{
+    GHNodeServer *Server = data;
+
+    switch( signal ) 
+    {
+        case SIGINT:
+            hnode_log_msg(LOG_NOTICE, "Received SIGINT; exiting");
+            g_signal_emit( Server, g_hnode_server_signals[STATE_EVENT], 0, NULL ); 
+            //g_main_loop_quit(main_loop);
+        break;
+
+        case SIGTERM:
+            hnode_log_msg(LOG_NOTICE, "Received SIGTERM; exiting");
+            g_signal_emit( Server, g_hnode_server_signals[STATE_EVENT], 0, NULL );
+        break;
+
+        default:
+            hnode_log_msg(LOG_WARNING, "Received unexpected signal %u; ignoring", signal);
+        break;
+    }
+
+    return TRUE;  // Continue checking this source
+}
+
+gboolean
+g_hnode_server_init_daemon( GHNodeServer *Server )
+{
+	GHNodeServerClass   *class;
+	GHNodeServerPrivate *priv;
+	
+	class = G_HNODE_SERVER_GET_CLASS (Server);
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    // Reset signal handlers
+    if( daemon_reset_sigs(-1) < 0 ) 
+    {
+        daemon_log( LOG_ERR, "Failed to reset all signal handlers: %s", strerror(errno) );
+        return TRUE;
+    }
+
+    // Unblock signals
+    if( daemon_unblock_sigs(-1) < 0 ) 
+    {
+        daemon_log( LOG_ERR, "Failed to unblock all signals: %s", strerror(errno) );
+        return TRUE;
+    }
+
+    // Set identification string for the daemon for both syslog and PID file
+    daemon_pid_file_ident = daemon_log_ident = daemon_ident_from_argv0( priv->daemonIDStr );
+
+    // Success
+    return FALSE;
+}
+
+gboolean
+g_hnode_server_kill_daemon( GHNodeServer *Server )
+{
+	GHNodeServerClass   *class;
+	GHNodeServerPrivate *priv;
+	
+	class = G_HNODE_SERVER_GET_CLASS (Server);
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    pid_t pid;
+    guint result;
+
+    // Initialize the daemon
+    if( g_hnode_server_init_daemon( Server ) )
+        return TRUE;
+
+    // Send the daemon a SIGTERM to kill it.
+    result = daemon_pid_file_kill_wait( SIGTERM, 5 );
+
+    // See if it worked.
+    if( result < 0 )
+    {
+        daemon_log( LOG_WARNING, "Failed to kill daemon: %s", strerror(errno) );
+        return TRUE;
+    }
+
+    // Success
+    return FALSE;
+}
+
+gboolean
+g_hnode_server_parent_wait_for_daemon_start( GHNodeServer *Server )
+{
+    /* The parent */
+    int ret;
+
+    // Wait for 20 seconds for a signal from the daemon.
+    ret = daemon_retval_wait(20);
+
+    // Wait for 20 seconds for the return value passed from the daemon process.
+    if( ret < 0 )
+    {
+        daemon_log( LOG_ERR, "Could not recieve return value from daemon process: %s", strerror( errno ) );
+        return 255;
+    }
+
+    daemon_log( ret != 0 ? LOG_ERR : LOG_INFO, "Daemon returned %i as return value.", ret );
+    return ret;
+}
+
+gboolean
+g_hnode_server_start_as_daemon( GHNodeServer *Server )
+{
+	GHNodeServerClass   *class;
+	GHNodeServerPrivate *priv;
+	guint result;
+
+	class = G_HNODE_SERVER_GET_CLASS (Server);
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    // Initialize the daemon
+    if( g_hnode_server_init_daemon( Server ) )
+        return TRUE;
+
+    // Check if the daemon is already running, and get its pid if it is.
+    priv->daemonPID = daemon_pid_file_is_running();
+
+    // Was it running.  Only allow one copy.
+    if( priv->daemonPID >= 0 ) 
+    {
+        daemon_log( LOG_ERR, "Daemon already running on PID file %u", priv->daemonPID );
+        return TRUE;
+    }
+
+    // Indicate that we are going to start up as a daemon process
+    priv->isDaemon = TRUE;
+
+    // Setup for a return value from the child to the parent.
+    if( daemon_retval_init() < 0 ) 
+    {
+        daemon_log( LOG_ERR, "Failed to create pipe." );
+        return TRUE;
+    }
+
+    // Perform the fork operation.
+    priv->daemonPID = daemon_fork(); 
+
+    // Perform the fork operation.
+    if( priv->daemonPID < 0 ) 
+    {
+        // Fork operation failed
+        daemon_retval_done();
+        return TRUE;
+    } 
+    else if( priv->daemonPID ) 
+    { 
+        // Remember that this version is the parent.
+        priv->isParent = TRUE;
+
+        // Success
+        return FALSE;
+    } 
+    else 
+    { 
+        // Remember that this version is the parent.
+        priv->isParent = FALSE;
+
+        // Running in the deamon process
+        int fd, quit = 0;
+        fd_set fds;
+
+        // Close stdin, stdout, stderr
+        result = daemon_close_all( -1 ); 
+
+        // Close stdin, stdout, stderr
+        if( result < 0 ) 
+        {
+            daemon_log( LOG_ERR, "Failed to close all file descriptors: %s", strerror( errno ) );
+
+            // Tell the parent process about the error
+            daemon_retval_send( 1 );
+
+            // Clean up
+            daemon_log(LOG_INFO, "Exiting...");
+            daemon_retval_send(255);
+            daemon_signal_done();
+            daemon_pid_file_remove();
+        }
+
+        // Create the pid file for tracking daemon state
+        result = daemon_pid_file_create();
+
+        if( result < 0 ) 
+        {
+            daemon_log( LOG_ERR, "Could not create PID file (%s).", strerror(errno) );
+            daemon_retval_send( 2 );
+
+            // Clean up
+            daemon_log(LOG_INFO, "Exiting...");
+            daemon_retval_send(255);
+            daemon_signal_done();
+            daemon_pid_file_remove();
+        }
+
+        // Setup the signals that the daemon will listern for
+        result = daemon_signal_init( SIGINT, SIGTERM, SIGQUIT, SIGHUP, 0 ); 
+
+        // Setup the signals that the daemon will listern for
+        if( result < 0 ) 
+        {
+            daemon_log( LOG_ERR, "Could not register signal handlers (%s).", strerror(errno) );
+            daemon_retval_send( 3 );
+
+            // Clean up
+            daemon_log(LOG_INFO, "Exiting...");
+            daemon_retval_send(255);
+            daemon_signal_done();
+            daemon_pid_file_remove();
+        }
+
+        // Tell the parent that things have started 
+        daemon_retval_send( 0 );
+
+        daemon_log( LOG_INFO, "Daemon started" );
+
+        // Set up handling of interesting signals
+        if( (g_hnode_signal_source_handle_signal( SIGINT ) < 0) || (g_hnode_signal_source_handle_signal( SIGTERM ) < 0)) 
+        {
+            hnode_log_perror(LOG_WARNING, "Failed to set up signal handling");
+        }
+        g_hnode_signal_source_add( g_hnode_server_signal_source_callback, NULL );
+
+        // Fire up the deamon process
+        g_hnode_server_start( Server );
+
+
+        return FALSE;
+#if 0
+        /* Prepare for select() on the signal fd */
+        FD_ZERO( &fds );
+        fd = daemon_signal_fd();
+        FD_SET( fd, &fds );
+
+        while( !quit ) 
+        {
+            fd_set fds2 = fds;
+
+            /* Wait for an incoming signal */
+            if( select( FD_SETSIZE, &fds2, 0, 0, 0 ) < 0 ) 
+            {
+                /* If we've been interrupted by an incoming signal, continue */
+                if( errno == EINTR )
+                    continue;
+
+                daemon_log( LOG_ERR, "select(): %s", strerror(errno) );
+                break;
+            }
+
+            /* Check if a signal has been recieved */
+            if( FD_ISSET( fd, &fds2 ) ) 
+            {
+                int sig;
+
+                /* Get signal */
+                if( (sig = daemon_signal_next()) <= 0 ) 
+                {
+                    daemon_log(LOG_ERR, "daemon_signal_next() failed: %s", strerror(errno));
+                    break;
+                }
+
+                /* Dispatch signal */
+                switch (sig) 
+                {
+
+                    case SIGINT:
+                    case SIGQUIT:
+                    case SIGTERM:
+                        daemon_log(LOG_WARNING, "Got SIGINT, SIGQUIT or SIGTERM.");
+                        quit = 1;
+                        break;
+
+                    case SIGHUP:
+                        daemon_log(LOG_INFO, "Got a HUP");
+                        daemon_exec("/", NULL, "/bin/ls", "ls", (char*) NULL);
+                        break;
+
+                }
+            }
+        }
+#endif
+
+    }
+}
+
 
 /*
 gboolean

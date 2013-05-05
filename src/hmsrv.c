@@ -52,18 +52,19 @@ typedef struct HMSrvProgramContextStruct
 
 }HMSRV_CONTEXT;
  
+HMSRV_CONTEXT Context;
+
 void 
 hmsrv_server_change( void )
 {
    g_message("hmsrv_server_change\n");
+   g_main_loop_quit( Context.Loop );
 }
 
 int
 main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
 {
-
     GHNodeServer  *Server;
-    HMSRV_CONTEXT Context;
 
     // Initialize the gobject type system
     g_type_init();
@@ -77,21 +78,20 @@ main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
     // Server intialization
 
     /* Create the GLIB main loop */
-    Context.Loop = g_main_loop_new (NULL, FALSE);
+    Context.Loop = g_main_loop_new( NULL, FALSE );
 
     // Register the server event callback
-    g_signal_connect (G_OBJECT (Server), "state_change",
-		      G_CALLBACK (hmsrv_server_change), NULL);
+    g_signal_connect( G_OBJECT( Server ), "state_change", G_CALLBACK( hmsrv_server_change ), NULL );
 
     // Start up the server object
-    g_hnode_server_start(Server);
+    g_hnode_server_start( Server );
 
     /* Start the GLIB Main Loop */
-    g_main_loop_run (Context.Loop);
+    g_main_loop_run( Context.Loop );
 
     fail:
     /* Clean up */
-    g_main_loop_unref (Context.Loop);
+    g_main_loop_unref( Context.Loop );
 //     avahi_client_free (Context.AvahiClient);
 //     avahi_glib_poll_free (glib_poll);
  
