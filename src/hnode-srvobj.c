@@ -1255,7 +1255,7 @@ g_hnode_server_init_daemon( GHNodeServer *Server )
 }
 
 gboolean
-g_hnode_server_kill_daemon( GHNodeServer *Server )
+g_hnode_server_stop_daemon( GHNodeServer *Server )
 {
 	GHNodeServerClass   *class;
 	GHNodeServerPrivate *priv;
@@ -1263,15 +1263,21 @@ g_hnode_server_kill_daemon( GHNodeServer *Server )
 	class = G_HNODE_SERVER_GET_CLASS (Server);
 	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
 
-    pid_t pid;
-    guint result;
+    gint result;
+
+    printf("Trying to stop daemon.\n");
 
     // Initialize the daemon
     if( g_hnode_server_init_daemon( Server ) )
+    {
+        g_print("Bad init.\n");
         return TRUE;
+    }
 
     // Send the daemon a SIGTERM to kill it.
     result = daemon_pid_file_kill_wait( SIGTERM, 5 );
+
+    g_print("Wait Kill Response: %d\n", result);
 
     // See if it worked.
     if( result < 0 )
@@ -1279,6 +1285,8 @@ g_hnode_server_kill_daemon( GHNodeServer *Server )
         daemon_log( LOG_WARNING, "Failed to kill daemon: %s", strerror(errno) );
         return TRUE;
     }
+
+    g_print("Daemon kill done.\n");
 
     // Success
     return FALSE;
@@ -1305,11 +1313,21 @@ g_hnode_server_parent_wait_for_daemon_start( GHNodeServer *Server )
 }
 
 gboolean
+g_hnode_server_is_parent( GHNodeServer *Server )
+{
+	GHNodeServerPrivate *priv;
+
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    return priv->isParent;
+}
+
+gboolean
 g_hnode_server_start_as_daemon( GHNodeServer *Server )
 {
 	GHNodeServerClass   *class;
 	GHNodeServerPrivate *priv;
-	guint result;
+	gint                 result;
 
 	class = G_HNODE_SERVER_GET_CLASS (Server);
 	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
@@ -1358,13 +1376,10 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
     } 
     else 
     { 
-        // Remember that this version is the parent.
+        // Remember that this version is the child.
         priv->isParent = FALSE;
 
         // Running in the deamon process
-        int fd, quit = 0;
-        fd_set fds;
-
         // Close stdin, stdout, stderr
         result = daemon_close_all( -1 ); 
 
@@ -1381,6 +1396,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
+            return TRUE;
         }
 
         // Create the pid file for tracking daemon state
@@ -1396,6 +1412,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
+            return TRUE;
         }
 
         // Setup the signals that the daemon will listern for
@@ -1412,6 +1429,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
+            return TRUE;
         }
 
         // Tell the parent that things have started 
@@ -1429,62 +1447,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
         // Fire up the deamon process
         g_hnode_server_start( Server );
 
-
         return FALSE;
-#if 0
-        /* Prepare for select() on the signal fd */
-        FD_ZERO( &fds );
-        fd = daemon_signal_fd();
-        FD_SET( fd, &fds );
-
-        while( !quit ) 
-        {
-            fd_set fds2 = fds;
-
-            /* Wait for an incoming signal */
-            if( select( FD_SETSIZE, &fds2, 0, 0, 0 ) < 0 ) 
-            {
-                /* If we've been interrupted by an incoming signal, continue */
-                if( errno == EINTR )
-                    continue;
-
-                daemon_log( LOG_ERR, "select(): %s", strerror(errno) );
-                break;
-            }
-
-            /* Check if a signal has been recieved */
-            if( FD_ISSET( fd, &fds2 ) ) 
-            {
-                int sig;
-
-                /* Get signal */
-                if( (sig = daemon_signal_next()) <= 0 ) 
-                {
-                    daemon_log(LOG_ERR, "daemon_signal_next() failed: %s", strerror(errno));
-                    break;
-                }
-
-                /* Dispatch signal */
-                switch (sig) 
-                {
-
-                    case SIGINT:
-                    case SIGQUIT:
-                    case SIGTERM:
-                        daemon_log(LOG_WARNING, "Got SIGINT, SIGQUIT or SIGTERM.");
-                        quit = 1;
-                        break;
-
-                    case SIGHUP:
-                        daemon_log(LOG_INFO, "Got a HUP");
-                        daemon_exec("/", NULL, "/bin/ls", "ls", (char*) NULL);
-                        break;
-
-                }
-            }
-        }
-#endif
-
     }
 }
 
