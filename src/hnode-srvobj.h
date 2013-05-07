@@ -99,7 +99,7 @@ struct _GHNodeServerEvent
 
 GHNodeServer *g_hnode_server_new (void);
 
-void g_hnode_server_start(GHNodeServer *sb);
+gboolean g_hnode_server_start(GHNodeServer *sb);
 //gboolean g_hnode_browser_open_hmnode( GHNodeBrowser *sb, guint32 MgmtServObjID );
 //gboolean g_hnode_browser_get_provider_info( GHNodeBrowser *sb, guint32 ProviderObjID, GHNodeProvider *Provider );
 //gboolean g_hnode_browser_get_endpoint_info( GHNodeBrowser *sb, guint32 ProviderObjID, guint32 EPIndex, GHNodeEndPoint *EndPoint );

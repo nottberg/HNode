@@ -77,7 +77,8 @@ main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
     GOptionContext *cmdline_context;
     GError *error = NULL;
     GHNodeServer  *Server;
-    guint result;
+    guint          result;
+    gboolean       startResult;
 
     // Initialize the gobject type system
     g_type_init();
@@ -112,16 +113,24 @@ main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
     if( noDaemon )
     {
         // Start the server in the foreground
-        g_hnode_server_start( Server );
+        startResult = g_hnode_server_start( Server );
     }
     else
     {
         // Fork off the server process
-        g_hnode_server_start_as_daemon( Server );
+        startResult = g_hnode_server_start_as_daemon( Server );
+    }
+
+    // If the start operation encountered an error then 
+    // exit right here before starting the main loop
+    if( startResult )
+    {
+        // Bad start
+        return 1;
     }
 
     // Check if this is the parent and we are running as a daemon
-    // Then wait here for the daemon to start and exit.
+    // Then wait here for the daemon to start, and then exit with the start code.
     // If this is the daemon then start up the main loop and handle requests
     if( g_hnode_server_is_parent( Server ) )
     {

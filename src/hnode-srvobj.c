@@ -1044,7 +1044,7 @@ g_hnode_server_new (void)
 /**
  * Kicks off managment server discovery
  */
-void
+gboolean
 g_hnode_server_start(GHNodeServer *Server)
 {
     guint8 PktBuf[512];
@@ -1169,13 +1169,13 @@ g_hnode_server_start(GHNodeServer *Server)
  	     goto fail;
      }
 
-     return;
+     return FALSE;
 
      fail:
      /* Clean up */
      avahi_client_free (priv->AvahiClient);
      avahi_glib_poll_free (glib_poll);
-
+     return TRUE;
 
 /*
     // Format a SLP request to discover the 
@@ -1442,12 +1442,10 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
         {
             hnode_log_perror(LOG_WARNING, "Failed to set up signal handling");
         }
-        g_hnode_signal_source_add( g_hnode_server_signal_source_callback, NULL );
+        g_hnode_signal_source_add( g_hnode_server_signal_source_callback, Server );
 
         // Fire up the deamon process
-        g_hnode_server_start( Server );
-
-        return FALSE;
+        return g_hnode_server_start( Server );
     }
 }
 
