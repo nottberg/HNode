@@ -345,6 +345,40 @@ g_hnode_server_init (GHNodeServer *sb)
     priv->NextProviderID = 0;
 }
 
+void 
+g_hnode_server_log_perror( GHNodeServer *Server, gint priority, gchar const *prefix ) 
+{
+    GHNodeServerPrivate *priv;
+
+    priv = G_HNODE_SERVER_GET_PRIVATE( Server );
+
+    if( priv->isDaemon )
+        daemon_log(priority, "%s: %s", prefix, strerror(errno));
+    else
+        printf("%d -- %s: %s\n", priority, prefix, strerror(errno));
+
+}
+
+void 
+g_hnode_server_log_msg(GHNodeServer *Server, gint priority, gchar const *format, ...) 
+{
+    va_list args;
+    GHNodeServerPrivate *priv;
+
+    priv = G_HNODE_SERVER_GET_PRIVATE( Server );
+
+    va_start(args, format);
+    if( priv->isDaemon )
+        daemon_logv(priority, format, args);
+    else
+    {
+        printf("%d --", priority);
+        vprintf(format, args);
+        printf("\n");
+    }
+    va_end(args);
+}
+
 /*
 static void
 g_hnode_server_set_property (GObject 	*object,
@@ -872,7 +906,7 @@ g_hnode_server_debugrx(GHNodePktSrc *sb, GHNodePacket *RxPacket, gpointer data)
     GHNodeClient *Client;
     GHNodePacket *TxPacket;
 
-    g_print("g_hnode_server_debugrx -- PktSrc: 0x%x, Packet: 0x%x, Server: 0x%x\n", sb, RxPacket, Server);
+    g_hnode_server_log_msg( Server, LOG_INFO, "g_hnode_server_debugrx -- PktSrc: 0x%x, Packet: 0x%x, Server: 0x%x\n", sb, RxPacket, Server);
 
     priv = G_HNODE_SERVER_GET_PRIVATE (Server);
 
@@ -883,7 +917,7 @@ g_hnode_server_debugrx(GHNodePktSrc *sb, GHNodePacket *RxPacket, gpointer data)
     RxEPIndex  = g_hnode_packet_get_short(RxPacket);
     RxDataLength = g_hnode_packet_get_short(RxPacket);
 
-    g_print("g_hnode_server_debugrx -- Packet: 0x%x, RxType: 0x%x, RxEPIndex: 0x%x, RxDataLength: 0x%x\n", RxPacket, RxType, RxEPIndex, RxDataLength);
+    g_hnode_server_log_msg( Server, LOG_INFO, "g_hnode_server_debugrx -- Packet: 0x%x, RxType: 0x%x, RxEPIndex: 0x%x, RxDataLength: 0x%x\n", RxPacket, RxType, RxEPIndex, RxDataLength);
 
     g_hnode_packet_get_bytes(RxPacket, RxDataBuffer, RxDataLength);
 
@@ -1093,7 +1127,7 @@ g_hnode_server_start(GHNodeServer *Server)
     priv->DebugSource = g_hnode_pktsrc_new(PST_HNODE_UDP_ASYNCH);
     g_signal_connect(priv->DebugSource, "rx_packet", G_CALLBACK(g_hnode_server_debugrx), Server);
 
-    printf("Debug PktSrc: 0x%x\n", priv->DebugSource);
+    g_hnode_server_log_msg( Server, LOG_INFO, "Debug PktSrc: 0x%x\n", priv->DebugSource);
 
     //g_signal_connect(priv->DebugSource, "tx_packet", g_hnode_server_debugtx, Server);
     g_hnode_pktsrc_start( priv->DebugSource );
@@ -1236,14 +1270,14 @@ g_hnode_server_init_daemon( GHNodeServer *Server )
     // Reset signal handlers
     if( daemon_reset_sigs(-1) < 0 ) 
     {
-        daemon_log( LOG_ERR, "Failed to reset all signal handlers: %s", strerror(errno) );
+        g_hnode_server_log_msg( Server, LOG_ERR, "Failed to reset all signal handlers: %s", strerror(errno) );
         return TRUE;
     }
 
     // Unblock signals
     if( daemon_unblock_sigs(-1) < 0 ) 
     {
-        daemon_log( LOG_ERR, "Failed to unblock all signals: %s", strerror(errno) );
+        g_hnode_server_log_msg( Server, LOG_ERR, "Failed to unblock all signals: %s", strerror(errno) );
         return TRUE;
     }
 
@@ -1265,28 +1299,28 @@ g_hnode_server_stop_daemon( GHNodeServer *Server )
 
     gint result;
 
-    printf("Trying to stop daemon.\n");
+    g_hnode_server_log_msg( Server, LOG_INFO, "Trying to stop daemon.");
 
     // Initialize the daemon
     if( g_hnode_server_init_daemon( Server ) )
     {
-        g_print("Bad init.\n");
+        g_hnode_server_log_msg(  Server, LOG_INFO, "Bad init.\n");
         return TRUE;
     }
 
     // Send the daemon a SIGTERM to kill it.
     result = daemon_pid_file_kill_wait( SIGTERM, 5 );
 
-    g_print("Wait Kill Response: %d\n", result);
+    g_hnode_server_log_msg(  Server, LOG_INFO, "Wait Kill Response: %d\n", result);
 
     // See if it worked.
     if( result < 0 )
     {
-        daemon_log( LOG_WARNING, "Failed to kill daemon: %s", strerror(errno) );
+        g_hnode_server_log_msg( Server, LOG_WARNING, "Failed to kill daemon: %s", strerror(errno) );
         return TRUE;
     }
 
-    g_print("Daemon kill done.\n");
+    g_hnode_server_log_msg(  Server, LOG_INFO, "Daemon kill done.\n");
 
     // Success
     return FALSE;
@@ -1304,11 +1338,11 @@ g_hnode_server_parent_wait_for_daemon_start( GHNodeServer *Server )
     // Wait for 20 seconds for the return value passed from the daemon process.
     if( ret < 0 )
     {
-        daemon_log( LOG_ERR, "Could not recieve return value from daemon process: %s", strerror( errno ) );
+        g_hnode_server_log_msg( Server, LOG_ERR, "Could not recieve return value from daemon process: %s", strerror( errno ) );
         return 255;
     }
 
-    daemon_log( ret != 0 ? LOG_ERR : LOG_INFO, "Daemon returned %i as return value.", ret );
+    g_hnode_server_log_msg( Server, ret != 0 ? LOG_ERR : LOG_INFO, "Daemon returned %i as return value.", ret );
     return ret;
 }
 
@@ -1342,7 +1376,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
     // Was it running.  Only allow one copy.
     if( priv->daemonPID >= 0 ) 
     {
-        daemon_log( LOG_ERR, "Daemon already running on PID file %u", priv->daemonPID );
+        g_hnode_server_log_msg( Server, LOG_ERR, "Daemon already running on PID file %u", priv->daemonPID );
         return TRUE;
     }
 
@@ -1352,7 +1386,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
     // Setup for a return value from the child to the parent.
     if( daemon_retval_init() < 0 ) 
     {
-        daemon_log( LOG_ERR, "Failed to create pipe." );
+        g_hnode_server_log_msg( Server, LOG_ERR, "Failed to create pipe." );
         return TRUE;
     }
 
@@ -1386,13 +1420,13 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
         // Close stdin, stdout, stderr
         if( result < 0 ) 
         {
-            daemon_log( LOG_ERR, "Failed to close all file descriptors: %s", strerror( errno ) );
+            g_hnode_server_log_msg( Server, LOG_ERR, "Failed to close all file descriptors: %s", strerror( errno ) );
 
             // Tell the parent process about the error
             daemon_retval_send( 1 );
 
             // Clean up
-            daemon_log(LOG_INFO, "Exiting...");
+            g_hnode_server_log_msg( Server, LOG_INFO, "Exiting...");
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
@@ -1404,11 +1438,11 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
 
         if( result < 0 ) 
         {
-            daemon_log( LOG_ERR, "Could not create PID file (%s).", strerror(errno) );
+            g_hnode_server_log_msg( Server, LOG_ERR, "Could not create PID file (%s).", strerror(errno) );
             daemon_retval_send( 2 );
 
             // Clean up
-            daemon_log(LOG_INFO, "Exiting...");
+            g_hnode_server_log_msg( Server, LOG_INFO, "Exiting...");
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
@@ -1421,11 +1455,11 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
         // Setup the signals that the daemon will listern for
         if( result < 0 ) 
         {
-            daemon_log( LOG_ERR, "Could not register signal handlers (%s).", strerror(errno) );
+            g_hnode_server_log_msg( Server, LOG_ERR, "Could not register signal handlers (%s).", strerror(errno) );
             daemon_retval_send( 3 );
 
             // Clean up
-            daemon_log(LOG_INFO, "Exiting...");
+            g_hnode_server_log_msg( Server, LOG_INFO, "Exiting...");
             daemon_retval_send(255);
             daemon_signal_done();
             daemon_pid_file_remove();
@@ -1435,7 +1469,7 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
         // Tell the parent that things have started 
         daemon_retval_send( 0 );
 
-        daemon_log( LOG_INFO, "Daemon started" );
+        g_hnode_server_log_msg( Server, LOG_INFO, "Daemon started" );
 
         // Set up handling of interesting signals
         if( (g_hnode_signal_source_handle_signal( SIGINT ) < 0) || (g_hnode_signal_source_handle_signal( SIGTERM ) < 0)) 
