@@ -61,12 +61,16 @@ hmsrv_server_change( void )
    g_main_loop_quit( Context.Loop );
 }
 
-static gboolean noDaemon   = FALSE;
-static gboolean stopDaemon = FALSE;
+static gboolean checkDaemon  = FALSE;
+static gboolean reloadConfig = FALSE;
+static gboolean asDaemon     = FALSE;
+static gboolean stopDaemon   = FALSE;
 
 static GOptionEntry entries[] = 
 {
-    { "nodaemon", 'n', 0, G_OPTION_ARG_NONE, &noDaemon, "Run in the foreground rather than forking as a daemon would.", NULL },
+    { "check", 'c', 0, G_OPTION_ARG_NONE, &checkDaemon, "Check whether the daemon is already running.  Return 1 is it is.", NULL },
+    { "reload", 'r', 0, G_OPTION_ARG_NONE, &reloadConfig, "Reload the daemon configuration from its config file.", NULL },
+    { "daemonize", 'D', 0, G_OPTION_ARG_NONE, &asDaemon, "Fork the daemon into a child process, otherwise run in the forground.", NULL },
     { "stop", 's', 0, G_OPTION_ARG_NONE, &stopDaemon, "Stop the currently running daemon", NULL },
     { NULL }
 };
@@ -94,11 +98,25 @@ main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
     if( Server == NULL )
         exit(-1);
 
+    // Check if the daemon is running already 
+    if( checkDaemon ) 
+    {
+        g_print("Check if daemon is running.");
+        return g_hnode_server_check_daemon( Server );
+    }
+
     // Check if we are being asked to kill an already running daemon 
     if( stopDaemon ) 
     {
-        g_print("Attempt to stop the daemon.");
+        g_print("Attempting to stop the daemon.");
         return g_hnode_server_stop_daemon( Server );
+    }
+
+    // Reload the running daemons config 
+    if( reloadConfig ) 
+    {
+        g_print("Reload daemon configuration.");
+        return g_hnode_server_reload_config( Server );
     }
 
     // Server intialization
@@ -110,15 +128,15 @@ main (AVAHI_GCC_UNUSED int argc, AVAHI_GCC_UNUSED char *argv[])
     // Register the server event callback
     g_signal_connect( G_OBJECT( Server ), "state_change", G_CALLBACK( hmsrv_server_change ), NULL );
 
-    if( noDaemon )
-    {
-        // Start the server in the foreground
-        startResult = g_hnode_server_start( Server );
-    }
-    else
+    if( asDaemon )
     {
         // Fork off the server process
         startResult = g_hnode_server_start_as_daemon( Server );
+    }
+    else
+    {
+        // Start the server in the foreground
+        startResult = g_hnode_server_start( Server );
     }
 
     // If the start operation encountered an error then 

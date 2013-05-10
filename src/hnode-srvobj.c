@@ -1289,6 +1289,38 @@ g_hnode_server_init_daemon( GHNodeServer *Server )
 }
 
 gboolean
+g_hnode_server_check_daemon( GHNodeServer *Server )
+{
+	GHNodeServerPrivate *priv;
+	pid_t pid;
+
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    g_hnode_server_log_msg( Server, LOG_INFO, "Checking on daemon status.");
+
+    // Initialize the daemon
+    if( g_hnode_server_init_daemon( Server ) )
+    {
+        g_hnode_server_log_msg(  Server, LOG_INFO, "Bad init.\n");
+        return FALSE;
+    }
+
+    // get the daemon status
+    pid = daemon_pid_file_is_running();
+
+    // Return the status to the requestor
+    if ( pid >= 0 ) 
+    {
+        daemon_log(LOG_INFO, "Daemon if running with PID: %u", pid);
+        return TRUE;
+    }
+
+    // Daemon is not running
+    return FALSE;
+
+}
+
+gboolean
 g_hnode_server_stop_daemon( GHNodeServer *Server )
 {
 	GHNodeServerClass   *class;
@@ -1327,9 +1359,19 @@ g_hnode_server_stop_daemon( GHNodeServer *Server )
 }
 
 gboolean
+g_hnode_server_reload_config( GHNodeServer *Server )
+{
+	GHNodeServerPrivate *priv;
+	
+	priv = G_HNODE_SERVER_GET_PRIVATE (Server);
+
+    // SUCCESS
+    return FALSE;
+}
+
+gboolean
 g_hnode_server_parent_wait_for_daemon_start( GHNodeServer *Server )
 {
-    /* The parent */
     int ret;
 
     // Wait for 20 seconds for a signal from the daemon.
