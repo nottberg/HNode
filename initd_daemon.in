@@ -2,7 +2,7 @@
 
 # $Id$
 #
-# hnode     hmnoded daemon
+# hnode     @DAEMON_NAME@ daemon
 # Daemon for HNode framwork
 #
 # Authors: <curtis.nottberg@gmail.com>
@@ -72,17 +72,17 @@ fi
 #set -e
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DESC="HNode hmnoded Daemon"
-NAME="hmnoded"
-DAEMON="/usr/sbin/$NAME"
+DESC="HNode @DAEMON_NAME@ Daemon"
+NAME="@DAEMON_NAME@"
+DAEMON="@CMAKE_INSTALL_PREFIX@/sbin/$NAME"
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
 
-# don't start if /etc/default/hmnoded says so.
+# don't start if /etc/default/@DAEMON_NAME@ says so.
 HMNODED_DAEMON_START=1
-test -f /etc/default/hmnoded && . /etc/default/hmnoded
+test -f /etc/default/@DAEMON_NAME@ && . /etc/default/@DAEMON_NAME@
 
 if [ "$HMNODED_DAEMON_START" != "1" -a "$1" != "stop" ]; then
     log_warning_msg "Not starting $DESC $NAME, disabled via /etc/default/$NAME"
@@ -98,10 +98,10 @@ d_start() {
     $DAEMON --check && return 0
 
     if [ -s /etc/localtime ]; then
-	if [ ! -d /etc/hmnoded/etc ]; then
-	    mkdir -p /etc/hmnoded/etc >/dev/null 2>&1
+	if [ ! -d /etc/@DAEMON_NAME@/etc ]; then
+	    mkdir -p /etc/@DAEMON_NAME@/etc >/dev/null 2>&1
 	fi
-	cp -fp /etc/localtime /etc/hmnoded/etc >/dev/null 2>&1
+	cp -fp /etc/localtime /etc/@DAEMON_NAME@/etc >/dev/null 2>&1
     fi;
     
     $DAEMON --daemonize

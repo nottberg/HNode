@@ -1,6 +1,8 @@
 CMAKE_MINIMUM_REQUIRED( VERSION 2.8 ) 
 PROJECT( hnode ) 
 
+SET( DAEMON_NAME hmnoded )
+
 SET( CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/" )
 
 FIND_PACKAGE(GLIB REQUIRED)
@@ -98,11 +100,21 @@ TARGET_LINK_LIBRARIES( hnode-testnode hnode_node )
 ADD_EXECUTABLE( hnode-hmcfg ${HNODE_HMCFG_SRC} )
 TARGET_LINK_LIBRARIES( hnode-hmcfg hnode_browser )
 
+CONFIGURE_FILE( ${CMAKE_SOURCE_DIR}/initd_daemon.in ${CMAKE_BINARY_DIR}/${DAEMON_NAME} @ONLY )
+CONFIGURE_FILE( ${CMAKE_SOURCE_DIR}/hnode-browser-1.0.pc.in ${CMAKE_BINARY_DIR}/hnode-browser-1.0.pc @ONLY )
+CONFIGURE_FILE( ${CMAKE_SOURCE_DIR}/hnode-node-1.0.pc.in ${CMAKE_BINARY_DIR}/hnode-node-1.0.pc @ONLY )
+CONFIGURE_FILE( ${CMAKE_SOURCE_DIR}/hnode-server-1.0.pc.in ${CMAKE_BINARY_DIR}/hnode-server-1.0.pc @ONLY )
+
 INSTALL( TARGETS hnode_node hnode_server hnode_browser DESTINATION ${CMAKE_INSTALL_PREFIX}/lib COMPONENT lib )
-INSTALL( TARGETS hmnoded DESTINATION ${CMAKE_INSTALL_PREFIX}/bin COMPONENT daemon )
+INSTALL( TARGETS hmnoded DESTINATION ${CMAKE_INSTALL_PREFIX}/sbin COMPONENT daemon )
 INSTALL( TARGETS hnode-testnode hnode-hmcfg DESTINATION ${CMAKE_INSTALL_PREFIX}/bin COMPONENT util )
 
 INSTALL( FILES ${HNODE_PUBLIC_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include COMPONENT devel )
+
+INSTALL( FILES ${CMAKE_BINARY_DIR}/${DAEMON_NAME} DESTINATION /etc/init.d COMPONENT daemon )
+INSTALL( FILES ${CMAKE_BINARY_DIR}/hnode-browser-1.0.pc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/pkgconfig COMPONENT devel )
+INSTALL( FILES ${CMAKE_BINARY_DIR}/hnode-node-1.0.pc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/pkgconfig COMPONENT devel )
+INSTALL( FILES ${CMAKE_BINARY_DIR}/hnode-server-1.0.pc DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/pkgconfig COMPONENT devel )
 
 # pkg-config files to go with the libraries.
 #pkgconfigdir = $(libdir)/pkgconfig
