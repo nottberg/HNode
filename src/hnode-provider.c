@@ -853,7 +853,7 @@ g_hnode_provider_parse_client_update(GHNodeProvider *sb, GHNodePacket *Packet)
 
     priv->EndPointCount = g_hnode_packet_get_uint(Packet);
 
-    g_hnode_packet_get_uint(Packet, 0); // Address Type
+    g_hnode_packet_get_uint(Packet); // Address Type
 
     AddrStrLen = g_hnode_packet_get_uint(Packet);
     g_hnode_packet_get_bytes(Packet, AddrStr, AddrStrLen);

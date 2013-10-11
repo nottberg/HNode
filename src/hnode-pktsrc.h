@@ -31,6 +31,10 @@
 #ifndef __G_HNODE_PKTSRC_H__
 #define __G_HNODE_PKTSRC_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 G_BEGIN_DECLS
 
 #define G_TYPE_HNODE_ADDRESS		    (g_hnode_address_get_type ())
@@ -53,9 +57,26 @@ struct _GHNodeAddressClass
 };
 
 GHNodeAddress *g_hnode_address_new (void);
+
 void g_hnode_address_free (GHNodeAddress *Addr);
 
+void g_hnode_address_set_str(GHNodeAddress *Address, gchar *AddrStr );
 
+void g_hnode_address_get_str_ptr(GHNodeAddress *Address, gchar **AddrStr, guint32 *AddrStrLen);
+
+gboolean g_hnode_address_get_ipv4_ptr(GHNodeAddress *Address, struct sockaddr_in **Addr, guint32 **AddrLen);
+
+gboolean g_hnode_address_get_ipv4_address(GHNodeAddress *Address, struct sockaddr_in *Addr, guint32 *AddrLen);
+
+gboolean g_hnode_address_set_ipv4_address(GHNodeAddress *Address, struct sockaddr_in *Addr, guint32 AddrLen);
+
+gboolean g_hnode_address_ipv4_commit( GHNodeAddress *Address );
+
+guint16 g_hnode_address_GetPort( GHNodeAddress *Address );
+
+void g_hnode_address_set_port( GHNodeAddress *Address, guint16 Port );
+
+gboolean g_hnode_address_is_equal( GHNodeAddress *Address, GHNodeAddress *TestAddrObj);
 
 
 #define G_TYPE_HNODE_PACKET			    (g_hnode_packet_get_type ())
@@ -110,8 +131,45 @@ struct _GHNodePacketClass
 
 GHNodePacket *g_hnode_packet_new (void);
 
+guint8 *g_hnode_packet_get_buffer_ptr(GHNodePacket *Packet, guint32 TotalLength);
 
+GHNodeAddress *g_hnode_packet_get_setable_address_object(GHNodePacket *Packet);
 
+GHNodeAddress *g_hnode_packet_get_address_object(GHNodePacket *Packet);
+
+void g_hnode_packet_assign_addrobj(GHNodePacket *Packet, GHNodeAddress *AddrObj );
+
+gboolean g_hnode_packet_clone_address(GHNodePacket *Packet, GHNodePacket *TemplatePacket);
+
+gboolean g_hnode_packet_get_payload_ptr(GHNodePacket *Packet, guint8 **PayloadPtr, guint32 *PayloadLength);
+
+guint8 *g_hnode_packet_get_offset_ptr(GHNodePacket *Packet, guint32 TotalLength);
+
+gboolean g_hnode_packet_increment_data_length(GHNodePacket *Packet, guint32 DataLength);
+
+guint32 g_hnode_packet_get_data_length(GHNodePacket *Packet);
+
+void g_hnode_packet_reset(GHNodePacket *Packet);
+
+void g_hnode_update_data_length(GHNodePacket *Packet);
+
+gboolean g_hnode_packet_set_uint(GHNodePacket *Packet, guint32 Value);
+
+guint32 g_hnode_packet_get_uint(GHNodePacket *Packet);
+
+gboolean g_hnode_packet_set_short(GHNodePacket *Packet, guint16 Value);
+
+guint16 g_hnode_packet_get_short(GHNodePacket *Packet);
+
+gboolean g_hnode_packet_set_char(GHNodePacket *Packet, guint8 Value);
+
+gchar g_hnode_packet_get_char(GHNodePacket *Packet);
+
+gboolean g_hnode_packet_set_bytes(GHNodePacket *Packet, guint8 *Buffer, guint32 ByteCount);
+
+gboolean g_hnode_packet_get_bytes(GHNodePacket *Packet, guint8 *Buffer, guint32 ByteCount);
+
+gboolean g_hnode_packet_skip_bytes(GHNodePacket *Packet, guint32 SkipCount);
 
 
 // Packet Source Object
@@ -193,10 +251,21 @@ GHNodePktSrc *g_hnode_pktsrc_new (guint32 Type);
 
 GHNodeAddress *g_hnode_pktsrc_get_address_object(GHNodePktSrc *Source);
 
+GHNodeAddress *g_hnode_pktsrc_use_address_object(GHNodePktSrc *Source, GHNodeAddress *AddrObj);
+
+void g_hnode_pktsrc_use_socket(GHNodePktSrc *Source, guint32 sockfd);
+
+gboolean g_hnode_pktsrc_start( GHNodePktSrc *sb );
+
+gboolean g_hnode_pktsrc_stop( GHNodePktSrc *sb );
+
 gboolean g_hnode_pktsrc_send_packet(GHNodePktSrc *sb, GHNodePacket *Packet);
 
 G_END_DECLS
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif // _HMSRV_PKTSRC_H_
 

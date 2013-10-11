@@ -36,6 +36,10 @@
 #ifndef __G_HNODE_NODEOBJ_H__
 #define __G_HNODE_NODEOBJ_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 G_BEGIN_DECLS
 
 #define G_TYPE_HNODE			(g_hnode_get_type ())
@@ -77,6 +81,31 @@ void g_hnode_start(GHNode *sb);
 void g_hnode_send_debug_frame(GHNode *HNode, guint32 Type, guint32 EPIndex, guint32 DebugDataLength, guint8 *DebugDataPtr);
 void g_hnode_send_event_frame(GHNode *HNode, guint32 EventID, guint32 EPIndex, guint32 EventParamLength, guint8 *EventParamDataPtr);
 
+void g_hnode_set_name_prefix(GHNode  *HNode, guint8  *NamePrefix);
+
+void g_hnode_set_version(GHNode *HNode, guint8 MajorVersion, guint8 MinorVersion, guint16 MicroVersion );
+
+void g_hnode_set_uid(GHNode *HNode, guint8 *UIDBuffer);
+
+void g_hnode_enable_config_support(GHNode *HNode);
+
+void g_hnode_set_endpoint_count(GHNode *HNode, guint16 EndPointCount);
+
+void g_hnode_set_endpoint(GHNode  *HNode, 
+                     guint16  EndPointIndex,
+                     guint16  AssociateEPIndex,
+	                 guint8  *MimeTypeStr,	
+	                 guint16  Port,
+	                 guint8   MajorVersion,
+	                 guint8   MinorVersion,
+	                 guint16  MicroVersion);
+
+void g_hnode_send_config_frame(GHNode  *HNode, GHNodePacket *TxPacket);
+
 G_END_DECLS
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
