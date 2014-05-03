@@ -1,23 +1,5 @@
-/* $Id: glib-integration.c 937 2005-11-08 21:56:28Z lennart $ */
- 
-/***
-   This file is part of avahi.
-  
-   avahi is free software; you can redistribute it and/or modify it
-   under the terms of the GNU Lesser General Public License as
-   published by the Free Software Foundation; either version 2.1 of the
-   License, or (at your option) any later version.
-  
-   avahi is distributed in the hope that it will be useful, but WITHOUT
-   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
-   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser General
-   Public License for more details.
-  
-   You should have received a copy of the GNU Lesser General Public
-   License along with avahi; if not, write to the Free Software
-   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-   USA.
-***/
+#ifndef __G_HNODE_PROVIDER_H__
+#define __G_HNODE_PROVIDER_H__
 
 #include <glib.h>
 #include <glib-object.h>
@@ -28,8 +10,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#ifndef __G_HNODE_PROVIDER_H__
-#define __G_HNODE_PROVIDER_H__
+#include "hnode-uid.h"
 
 G_BEGIN_DECLS
 
@@ -114,8 +95,20 @@ gboolean g_hnode_provider_claim(GHNodeProvider *sb, guint32 ServerObjID, guint16
 
 gboolean g_hnode_provider_generate_tx_request(GHNodeProvider *sb, GHNodePacket *Packet);
 
-
-
+gboolean g_hnode_provider_get_address(GHNodeProvider *sb, GHNodeAddress **ObjAddr);
+gboolean g_hnode_provider_get_version(GHNodeProvider *sb, guint32 *MajorVersion, guint32 *MinorVersion, guint32 *MicroVersion);
+gboolean g_hnode_provider_get_uid(GHNodeProvider *sb, guint8 *UIDArray);
+GHNodeUID *g_hnode_provider_get_uid_objptr(GHNodeProvider *sb);
+gboolean g_hnode_provider_compare_uid(GHNodeProvider *Node, GHNodeUID *CmpUID);
+gboolean g_hnode_provider_has_srvobj_id(GHNodeProvider *Node, guint32 SrvObjID);
+gboolean g_hnode_provider_supports_config(GHNodeProvider *Node);
+gboolean g_hnode_provider_get_config_address(GHNodeProvider *sb, GHNodeAddress **ConfigAddr);
+gboolean g_hnode_provider_get_endpoint_count(GHNodeProvider *sb, guint32 *EPCount);
+gboolean g_hnode_provider_endpoint_get_address(GHNodeProvider *sb, guint32 EPIndx, GHNodeAddress **EPAddr);
+gboolean g_hnode_provider_endpoint_get_version(GHNodeProvider *sb, guint32 EPIndx, guint32 *MajorVersion, guint32 *MinorVersion, guint32 *MicroVersion);
+gboolean g_hnode_provider_endpoint_get_associate_index(GHNodeProvider *sb, guint32 EPIndx, guint32 *EPAssocIndex);
+gboolean g_hnode_provider_endpoint_get_type_str(GHNodeProvider *sb, guint32 EPIndx, gchar **EPTypeStrPtr);
+gboolean g_hnode_provider_supports_interface(GHNodeProvider *Node, gchar *EPTypeStrPtr, guint32 *EPIndex);
 
 G_END_DECLS
 

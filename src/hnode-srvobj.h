@@ -1,3 +1,5 @@
+#ifndef __G_HNODE_SERVER_H__
+#define __G_HNODE_SERVER_H__
 /**
  * hnode-srvobj.h
  *
@@ -33,8 +35,7 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-#ifndef __G_HNODE_SERVER_H__
-#define __G_HNODE_SERVER_H__
+#include "hnode-provider.h"
 
 G_BEGIN_DECLS
 
@@ -61,12 +62,12 @@ typedef struct _GHNodeServer		 GHNodeServer;
 typedef struct _GHNodeServerClass	 GHNodeServerClass;
 typedef struct _GHNodeServerEvent	 GHNodeServerEvent;
 
-typedef enum _GHNodeServerEventType	 GHNodeServerEventType;
-
 enum _GHNodeServerEventType
 {
     G_HNODE_SERVER_EVENT,
 };
+
+typedef enum _GHNodeServerEventType	 GHNodeServerEventType;
 
 struct _GHNodeServer
 {
@@ -80,7 +81,9 @@ struct _GHNodeServerClass
 	//AvahiClient *client;
 
 	/* Signal handlers */
+	void (* state_change)		(GHNodeServer *sb, gpointer event);
 	void (* hnode_found)		(GHNodeServer *sb, gpointer event);
+	void (* hnode_lost) 		(GHNodeServer *sb, gpointer event);
 
 };
 
@@ -100,6 +103,17 @@ struct _GHNodeServerEvent
 GHNodeServer *g_hnode_server_new (void);
 
 gboolean g_hnode_server_start(GHNodeServer *sb);
+gboolean g_hnode_server_init_daemon( GHNodeServer *Server );
+gboolean g_hnode_server_check_daemon( GHNodeServer *Server );
+gboolean g_hnode_server_stop_daemon( GHNodeServer *Server );
+gboolean g_hnode_server_reload_config( GHNodeServer *Server );
+gboolean g_hnode_server_parent_wait_for_daemon_start( GHNodeServer *Server );
+gboolean g_hnode_server_is_parent( GHNodeServer *Server );
+gboolean g_hnode_server_start_as_daemon( GHNodeServer *Server );
+
+guint g_hnode_server_get_provider_count( GHNodeServer *Server );
+GHNodeProvider* g_hnode_server_get_provider( GHNodeServer *Server, guint index );
+
 //gboolean g_hnode_browser_open_hmnode( GHNodeBrowser *sb, guint32 MgmtServObjID );
 //gboolean g_hnode_browser_get_provider_info( GHNodeBrowser *sb, guint32 ProviderObjID, GHNodeProvider *Provider );
 //gboolean g_hnode_browser_get_endpoint_info( GHNodeBrowser *sb, guint32 ProviderObjID, guint32 EPIndex, GHNodeEndPoint *EndPoint );

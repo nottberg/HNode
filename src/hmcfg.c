@@ -196,6 +196,8 @@ static GOptionEntry entries[] =
 {
   { "wait", 't', 0, G_OPTION_ARG_INT, &wait_time, "The number of seconds to wait before exiting.", "N" },
   { "list", 'l', 0, G_OPTION_ARG_NONE, &list, "Discover management servers and associated hnodes.  Output a list upon exit.", NULL },
+//  { "list-xml", 'x', 0, G_OPTION_ARG_NONE, &listxml, "Discover management servers and associated hnodes.  Output an xml list upon exit.", NULL },
+//  { "list-intf", 'i', 0, G_OPTION_ARG_STR, &listintf, "Discover hnodes that export a specific interface.  Output an xml list upon exit.", NULL },
   { "debug", 'd', 0, G_OPTION_ARG_NONE, &debug, "Decode and output debug packets from discovered hnodes.", NULL },
   { "event", 'e', 0, G_OPTION_ARG_NONE, &event, "Decode and output event packets from discovered hnodes.", NULL },
   { NULL }

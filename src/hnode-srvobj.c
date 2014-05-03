@@ -227,6 +227,8 @@ enum
 enum
 {
     STATE_EVENT,
+    ADD_PROVIDER,
+    REMOVE_PROVIDER,
 	LAST_SIGNAL
 };
 
@@ -304,7 +306,27 @@ g_hnode_server_class_init (GHNodeServerClass *class)
 			"state_change",
 			G_OBJECT_CLASS_TYPE (o_class),
 			G_SIGNAL_RUN_FIRST,
+			G_STRUCT_OFFSET (GHNodeServerClass, state_change),
+			NULL, NULL,
+			g_cclosure_marshal_VOID__POINTER,
+			G_TYPE_NONE,
+			1, G_TYPE_POINTER);
+
+	g_hnode_server_signals[ADD_PROVIDER] = g_signal_new (
+			"add_hnode",
+			G_OBJECT_CLASS_TYPE (o_class),
+			G_SIGNAL_RUN_FIRST,
 			G_STRUCT_OFFSET (GHNodeServerClass, hnode_found),
+			NULL, NULL,
+			g_cclosure_marshal_VOID__POINTER,
+			G_TYPE_NONE,
+			1, G_TYPE_POINTER);
+
+	g_hnode_server_signals[REMOVE_PROVIDER] = g_signal_new (
+			"remove_hnode",
+			G_OBJECT_CLASS_TYPE (o_class),
+			G_SIGNAL_RUN_FIRST,
+			G_STRUCT_OFFSET (GHNodeServerClass, hnode_lost),
 			NULL, NULL,
 			g_cclosure_marshal_VOID__POINTER,
 			G_TYPE_NONE,
@@ -453,6 +475,10 @@ g_hnode_server_provider_state(GHNodeProvider *sb, guint32 newstate, gpointer dat
         // Provider has been claimed and is now ready for transactions.
         case GHNP_STATE_READY:
         {
+
+            // Tell anyone listening on the server object
+      	    g_signal_emit(Server, g_hnode_server_signals[ADD_PROVIDER], 0, sb);
+
             // Notify all client nodes of the new hnode.
             CurElem = g_list_first(priv->ClientList);
             while( CurElem )
@@ -704,8 +730,6 @@ g_hnode_server_resolve_callback(
                 // Notify interested parties about the new service.
                 //hbevent.eventtype = G_HNODE_ADD;
                 //hbevent.ObjID     = PRecord->ObjID;
-
-        	    //g_signal_emit(Server, g_hnode_server_signals[STATE_EVENT], 0, NULL); //&hbevent);
             }
 
  	        avahi_free(t);
@@ -1525,6 +1549,23 @@ g_hnode_server_start_as_daemon( GHNodeServer *Server )
     }
 }
 
+guint
+g_hnode_server_get_provider_count( GHNodeServer *Server )
+{
+	GHNodeServerPrivate *priv;
+	priv = G_HNODE_SERVER_GET_PRIVATE( Server );
+
+    return g_list_length( priv->HNodeList );
+}
+
+GHNodeProvider*
+g_hnode_server_get_provider( GHNodeServer *Server, guint index )
+{
+	GHNodeServerPrivate *priv;
+	priv = G_HNODE_SERVER_GET_PRIVATE( Server );
+
+    return g_list_nth_data( priv->HNodeList, index );
+}
 
 /*
 gboolean
@@ -1831,6 +1872,7 @@ g_hnode_browser_reset_device_filter(GHNodeBrowser *sb)
     priv->ProfileFilter = NULL;
 }
 */
+
 
 
 
