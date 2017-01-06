@@ -44,7 +44,7 @@ const char *errorpage =
 
 RESTDaemon::RESTDaemon()
 {
-
+    listenPort = REST_DAEMON_DEFAULT_PORT;
 }
 
 RESTDaemon::~RESTDaemon()
@@ -52,10 +52,16 @@ RESTDaemon::~RESTDaemon()
 
 }
 
+void 
+RESTDaemon::setListeningPort( unsigned short port )
+{
+    listenPort = port;
+}
+
 int 
 RESTDaemon::start()
 {
-    daemon = MHD_start_daemon( MHD_USE_SELECT_INTERNALLY, PORT, NULL, NULL, &connection_request, this, MHD_OPTION_NOTIFY_COMPLETED, request_completed, this, MHD_OPTION_END );
+    daemon = MHD_start_daemon( MHD_USE_SELECT_INTERNALLY, listenPort, NULL, NULL, &connection_request, this, MHD_OPTION_NOTIFY_COMPLETED, request_completed, this, MHD_OPTION_END );
 
     if( NULL == daemon )
         return 1;
@@ -76,16 +82,32 @@ RESTDaemon::sendResponse( RESTRequest *request )
     struct MHD_Response *response;
     RESTRepresentation *payload;
 
+    std::string rspContentType;
+    unsigned long rspLength;
+    unsigned char *rspBufPtr;
+
     payload = request->getOutboundRepresentation();
+    rspBufPtr = payload->getSimpleContentPtr( rspContentType, rspLength );
 
     // Build and send the response
     ret = MHD_NO;
-    //printf("Response Content(%ld): %*.*s\n", payload->getLength(), (int)payload->getLength(), (int)payload->getLength(), payload->getBuffer());
+    
+    printf( "Response Content(%ld): %*.*s\n", rspLength, (int)rspLength, (int)rspLength, rspBufPtr );
 
-    response = MHD_create_response_from_buffer( payload->getLength(), payload->getBuffer(), MHD_RESPMEM_MUST_COPY );
+    response = MHD_create_response_from_buffer( rspLength, rspBufPtr, MHD_RESPMEM_MUST_COPY );
 
     if( response )
     {
+        std::map< std::string, std::string > headerMap;
+
+        // Add any return headers that were specified in the outResponse.
+        payload->getHTTPHeaderMap( headerMap );
+
+        for( std::map< std::string, std::string >::iterator it = headerMap.begin(); it != headerMap.end(); ++it )
+        {
+            MHD_add_response_header( response, it->first.c_str(), it->second.c_str() );
+        }
+
         ret = MHD_queue_response( request->getConnection(), request->getResponseCode(), response );
         MHD_destroy_response( response );
     }
@@ -156,6 +178,8 @@ RESTDaemon::newRequest( RESTRequest *request, const char *upload_data, size_t *u
     if( request_handled == false )
     {
         response = MHD_create_response_from_buffer( 0, 0, MHD_RESPMEM_MUST_COPY );
+
+        printf("WARN: No handler found for url!");
 
         if( response )
         {
