@@ -1,6 +1,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <iostream>
+
 #include "hnode-rest.hpp"
 
 #define POSTBUFFERSIZE 1024

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include <list>
+#include <iostream>
 
 #include "hnode-rest.hpp"
 
