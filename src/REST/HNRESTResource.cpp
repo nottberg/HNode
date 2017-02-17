@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include <boost/foreach.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/regex.hpp>
 
@@ -46,11 +47,15 @@ RESTResourcePE::isMatch( std::string testElem )
 {
     if( (matchType == REST_RPE_MATCH_STRING) && (testElem == patternStr) )
     {
+        std::cout << "match" << std::endl;
+
         // This element matches
         return true;
     }
     
     // Not a match
+    std::cout << "mis-match" << std::endl;
+
     return false;
 }
 
@@ -166,19 +171,25 @@ RESTResource::linkRequest( RESTRequest *request )
     request->clearWildcardElements();
 
     // Walk through the request URL to make sure its a match.
-    boost::char_separator<char> sep("/");
-    boost::tokenizer< boost::char_separator<char> > tokens(request->getURL(), sep);
     unsigned int index = 0;
-    BOOST_FOREACH (const std::string& t, tokens) 
+
+    std::vector< std::string > strs;
+    std::string tmpStr = request->getURL();
+    boost::split( strs, tmpStr, boost::is_any_of("/") );
+
+    for( std::vector< std::string >::iterator it = strs.begin(); it != strs.end(); it++ )
     {
-        std::cout << "Process Request:" << t << "." << index << std::endl;
+        if( it->size() == 0 )
+            continue;
+
+        std::cout << "Process Request: " << *it << "." << index << std::endl;
 
         // If a wildcard has already occurred
         // then collect the rest of the URL
         // for later use.
         if( wildcardMatch )
         {
-            request->appendWildcardElement( t );
+            request->appendWildcardElement( *it );
             continue;
         }
 
@@ -198,16 +209,18 @@ RESTResource::linkRequest( RESTRequest *request )
         switch( elem->getMatchType() )
         {
             case REST_RPE_MATCH_STRING:
-                if( elem->isMatch( t ) == false )
+            {
+                if( elem->isMatch( *it ) == false )
                 {
                     std::cout << "Process Request Result -- mismatched element" << std::endl;
                     return false;
                 }
+            }
             break;
 
             case REST_RPE_MATCH_PARAM:
                 std::cout << "Process Request Result -- param match" << std::endl;
-                request->setURIParameter( elem->getMatchElement(), t );
+                request->setURIParameter( elem->getMatchElement(), *it );
             break;
 
             case REST_RPE_MATCH_WILDCARD:
@@ -215,7 +228,7 @@ RESTResource::linkRequest( RESTRequest *request )
                 // This is a match so set all of the remaining elements
                 // as part of the extended URL
                 wildcardMatch = true;
-                request->appendWildcardElement( t );
+                request->appendWildcardElement( *it );
             break;
 
         }
