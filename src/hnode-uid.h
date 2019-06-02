@@ -6,7 +6,7 @@
 
 G_BEGIN_DECLS
 
-#define G_TYPE_HNODE_UID		    (g_hnode_address_get_type ())
+#define G_TYPE_HNODE_UID		    (g_hnode_uid_get_type ())
 #define G_HNODE_UID(obj)			(G_TYPE_CHECK_INSTANCE_CAST ((obj), G_TYPE_HNODE_UID, GHNodeUID))
 #define G_HNODE_UID_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), G_TYPE_HNODE_UID, GHNodeUIDClass))
 
